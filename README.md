@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Yusuf Suder Audiology (YSA) — practice app
 
-## Getting Started
+**We're hear for you.** *(the pun is deliberate)*
 
-First, run the development server:
+Mobile-first PWA for the practice: online booking, schedule, patient history with recalls and scans, takings, ENT referrals, notifications and WhatsApp messaging.
+
+| | |
+|---|---|
+| Frontend | Next.js 16 (App Router) · TypeScript (strict) · Tailwind CSS 4 · shadcn-style UI kit · framer-motion · recharts |
+| Backend | Supabase — Auth, Postgres (RLS on every table), Storage (`patient-scans`, private), Edge Functions, `pg_cron` + `pg_net` |
+| Hosting | Netlify (auto-deploys `main`) |
+| Time zone | Africa/Johannesburg · weeks start Monday · ZAR |
+
+## Local development
 
 ```bash
+cp .env.example .env.local   # fill in the publishable key
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Environment variables (Netlify → Site configuration → Environment variables):
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Name | Purpose |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase **publishable** key |
+| `NEXT_PUBLIC_SITE_URL` | Public base URL (booking links, embed code). Change to `https://ysa-is-hear.co.za` when the domain is live. |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Secrets that live **only** in Supabase (never in the repo or frontend): `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, optional `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`. The cron secret lives in Supabase Vault (`ysa_cron_secret`).
 
-## Learn More
+## Structure
 
-To learn more about Next.js, take a look at the following resources:
+```
+src/app/(app)/…            staff screens (Home, Schedule, Takings, Scan, Patients, ENT, Notifications, Settings)
+src/app/book               public booking page (no login) — embeddable with ?embed=1
+src/app/login|setup        sign-in, first-run doctor account
+src/components/…           UI kit, brand (YSA badge/wordmark), feature components
+src/proxy.ts               route guard (Next 16 "proxy", formerly middleware)
+supabase/migrations        all schema changes (applied in order)
+supabase/functions         send-whatsapp, scheduled-jobs, staff-admin, whatsapp-webhook
+docs/whatsapp-templates.md templates to submit to Meta
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## How things work
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Access:** only active rows in `staff` can read/write anything (`private.is_staff()` in every RLS policy). Anonymous visitors can only call `get_booking_options`, `get_available_dates`, `get_available_slots` (times only) and `request_booking` (honeypot, consent check, per-IP/per-phone/global rate limits, advisory lock against double booking).
+- **First run:** open `/setup` to create Dr Yusuf's account. It refuses once any staff account exists. Further staff are added in Settings → Staff.
+- **Completing an appointment** creates a visit (DB trigger) → recalls recalculate (`next_due = last relevant visit + interval`, unless set manually) → the app opens "Record payment".
+- **Scheduled jobs** (`pg_cron`, UTC): 06:00 UTC = 08:00 SAST daily (birthdays, recall reminders 7 days ahead, overdue recalls, ENT follow-ups) and hourly at :05 (24-hour appointment reminders, sent 08:00–19:59 SAST). The SQL functions are idempotent (dedupe keys / sent markers) and log to `job_runs`; the `scheduled-jobs` Edge Function sends the WhatsApp messages.
+- **Scans** are compressed on the device (≤2000 px, JPEG 0.8), stored at `patients/{patient_id}/visits/{visit_id}/{front|back|audiogram}-{timestamp}.jpg`, and shown via short-lived signed URLs. `visit_scans.ai_status/ai_text` and `visits.ai_notes` are reserved for a future "Extract notes with AI" button.
