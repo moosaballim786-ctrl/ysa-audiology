@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Offline · YSA</title>
+<style>
+  body{margin:0;min-height:100vh;display:grid;place-items:center;background:#F7F9FA;color:#1E293B;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+  .card{max-width:360px;margin:24px;padding:32px 28px;background:#fff;border:1px solid #E4E9EF;border-radius:20px;text-align:center;box-shadow:0 8px 40px -12px rgba(30,41,59,.18)}
+  h1{font-size:20px;color:#111827;margin:16px 0 6px}
+  p{color:#64748B;font-size:15px;line-height:1.5;margin:0 0 20px}
+  button{height:44px;padding:0 20px;border:0;border-radius:12px;background:#2A7F8F;color:#fff;font-size:15px;font-weight:600}
+  .tag{color:#2A7F8F;font-size:13px;margin-top:18px}
+</style>
+</head>
+<body>
+  <div class="card">
+    <img src="/brand/ysa-badge.svg" width="64" height="64" alt="YSA" />
+    <h1>You're offline</h1>
+    <p>Check your internet connection. Patient information is only shown when you're connected.</p>
+    <button onclick="location.reload()">Try again</button>
+    <div class="tag">We're hear for you</div>
+  </div>
+</body>
+</html>
