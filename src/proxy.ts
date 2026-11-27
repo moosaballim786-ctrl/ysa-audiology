@@ -7,6 +7,7 @@ export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
   const { pathname } = request.nextUrl;
   const isPublic = PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
+  const looksLikeBooking = /^\/(boo|bok|appoint)/i.test(pathname);
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,6 +28,12 @@ export async function proxy(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const signedIn = !!data?.claims?.sub;
 
+  // A patient who mistypes the booking link should land on booking, never on the staff login.
+  if (!signedIn && looksLikeBooking && pathname !== "/book") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/book";
+    return NextResponse.redirect(url);
+  }
   if (!signedIn && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
